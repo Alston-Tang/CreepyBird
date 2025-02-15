@@ -1,0 +1,28 @@
+{
+  "name": "creepy-bird",
+  "private": false,
+  "version": "1.0.0",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/creepy-bird.umd.js",
+  "module": "./dist/creepy-bird.es.js",
+  "exports": {
+    ".": {
+      "import": "./dist/creepy-bird.es.js",
+      "require": "./dist/creepy-bird.umd.js"
+    }
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0",
+    "vitest": "^1.0.0",
+    "flv.js": "^1.6.2"
+  }
+}

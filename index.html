@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CreepyBird Demo</title>
+    <style>
+        #videoContainer {
+            width: 100%;
+            max-width: 800px;
+            margin: 20px auto;
+        }
+        #videoElement {
+            width: 100%;
+        }
+        #controls {
+            text-align: center;
+            margin: 10px 0;
+        }
+        #controls button {
+            margin: 0 5px;
+            padding: 5px 15px;
+        }
+    </style>
+</head>
+<body>
+    <div id="videoContainer">
+        <video id="videoElement" controls></video>
+    </div>
+    <div id="controls">
+        <button id="attachBtn">Attach</button>
+        <button id="detachBtn">Detach</button>
+        <button id="loadBtn">Load Danmaku</button>
+        <button id="showBtn">Show</button>
+        <button id="hideBtn">Hide</button>
+    </div>
+    <script type="module">
+        import flvjs from 'flv.js';
+        import CreepyBird from './index.js';
+
+        // Initialize CreepyBird
+        const bird = new CreepyBird();
+        bird.setDebug(true);  // Enable debug logs
+        
+        // Get video element
+        const videoElement = document.getElementById('videoElement');
+        
+        // Add button event listeners
+        document.getElementById('attachBtn').addEventListener('click', () => {
+            bird.attachToVideo(videoElement);
+        });
+
+        document.getElementById('loadBtn').addEventListener('click', () => {
+            bird.load('https://nana7mi.live/20241024_%E4%B8%83%E6%B5%B7Nana7mi_%E9%AA%97%E5%AD%90%E9%85%92%E5%90%A7_203937.xml', 'bilibilixml')
+              .then(danmakus => {
+                console.log('Loaded', danmakus.length, 'danmaku messages');
+              })
+              .catch(error => {
+                console.error('Failed to load danmaku:', error);
+              });
+        });
+
+        document.getElementById('detachBtn').addEventListener('click', () => bird.detach());
+        document.getElementById('showBtn').addEventListener('click', () => bird.show());
+        document.getElementById('hideBtn').addEventListener('click', () => bird.hide());
+
+        // Initialize FLV player
+        if (flvjs.isSupported()) {
+            const player = flvjs.createPlayer({
+                type: 'flv',
+                url: 'https://nana7mi.live/20241024_%E4%B8%83%E6%B5%B7Nana7mi_%E9%AA%97%E5%AD%90%E9%85%92%E5%90%A7_203937.flv',
+            });
+            player.attachMediaElement(videoElement);
+            player.load();
+        } else {
+            console.error('flv.js is not supported in your browser');
+        }
+    </script>
+</body>
+</html>
