@@ -33,6 +33,8 @@ export default class CreepyBird {
       seeking: null
     };
     this._state = CreepyBirdState.Empty;  // Initialize state to Empty
+    this._resizeObserver = null;  // Store ResizeObserver instance
+    this._intersectionObserver = null;  // Store IntersectionObserver instance
   }
 
   // Helper method for debug logging
@@ -58,33 +60,83 @@ export default class CreepyBird {
 
     this._videoElement = videoElement;
     this.overlayElement = document.createElement('div');
+
+    // Get video position and size
+    const videoRect = videoElement.getBoundingClientRect();
+
+    // Set overlay position and size based on video
     this.overlayElement.style.position = 'absolute';
-    this.overlayElement.style.top = '0';
-    this.overlayElement.style.left = '0';
-    this.overlayElement.style.width = '100%';
-    this.overlayElement.style.height = '100%';
+    this.overlayElement.style.left = `${videoRect.left}px`;
+    this.overlayElement.style.top = `${videoRect.top}px`;
+    this.overlayElement.style.width = `${videoRect.width}px`;
+    this.overlayElement.style.height = `${videoRect.height}px`;
     this.overlayElement.style.pointerEvents = 'none';
-    this.overlayElement.style.zIndex = '1';
-    this.overlayElement.style.overflow = 'hidden';  // Hide content outside overlay
+    this.overlayElement.style.zIndex = '2147483647';  // Maximum z-index
+    this.overlayElement.style.overflow = 'hidden';
 
-    const videoContainer = videoElement.parentElement;
-    if (videoContainer) {
-      videoContainer.style.position = 'relative';
-      videoContainer.appendChild(this.overlayElement);
-    }
+    // Add to document body instead of video container
+    document.body.appendChild(this.overlayElement);
 
-    // Store handlers for later removal
-    this._handlers.play = () => {
-      this._log('Video play event detected');
-      this.resume();
+    // Update overlay position function
+    const updatePosition = (trigger) => {
+      const videoRect = this._videoElement.getBoundingClientRect();
+      const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      
+      this._log('Updating overlay position:', {
+        clientLeft: videoRect.left,
+        clientTop: videoRect.top,
+        scrollLeft,
+        scrollTop,
+        pageLeft: videoRect.left + scrollLeft,
+        pageTop: videoRect.top + scrollTop,
+        width: videoRect.width,
+        height: videoRect.height,
+        trigger
+      });
+      
+      this.overlayElement.style.left = `${videoRect.left + scrollLeft}px`;
+      this.overlayElement.style.top = `${videoRect.top + scrollTop}px`;
+      this.overlayElement.style.width = `${videoRect.width}px`;
+      this.overlayElement.style.height = `${videoRect.height}px`;
+
+      this.updateDanmakuLines();
     };
-    this._handlers.pause = () => {
-      this._log('Video pause event detected');
-      this.pause();
-    };
-    this._handlers.seeking = () => {
-      this._log('Video seek event detected, current time:', videoElement.currentTime);
-      this.seek(videoElement.currentTime);
+
+    // Create and store intersection observer
+    this._intersectionObserver = new IntersectionObserver(
+      (entries) => {
+        updatePosition('_intersectionObserver');
+      },
+      {
+        threshold: [0, 1],
+        root: null
+      }
+    );
+    this._intersectionObserver.observe(videoElement);
+    this._log('IntersectionObserver created and attached to video element');
+
+    // Create and store resize observer
+    this._resizeObserver = new ResizeObserver(() => {
+      updatePosition('_resizeObserver');
+    });
+    this._resizeObserver.observe(videoElement);
+    this._log('ResizeObserver created and attached to video element');
+
+    // Store handlers for cleanup
+    this._handlers = {
+      play: () => {
+        this._log('Video play event detected');
+        this.resume();
+      },
+      pause: () => {
+        this._log('Video pause event detected');
+        this.pause();
+      },
+      seeking: () => {
+        this._log('Video seek event detected, current time:', videoElement.currentTime);
+        this.seek(videoElement.currentTime);
+      },
     };
 
     // Add video playback event listeners
@@ -94,12 +146,6 @@ export default class CreepyBird {
 
     // Initialize danmaku lines
     this.updateDanmakuLines();
-
-    // Add resize observer to handle video element resizing
-    const resizeObserver = new ResizeObserver(() => {
-      this.updateDanmakuLines();
-    });
-    resizeObserver.observe(videoElement);
 
     // Set state to Hide after setup
     this._state = CreepyBirdState.Hide;
@@ -335,7 +381,7 @@ export default class CreepyBird {
     return this;
   }
 
-  calcAvailableLines() {
+  calAvailableLines() {
     this._log('Calculated available lines');
     if (!this._videoElement) {
       return 0;
@@ -352,7 +398,7 @@ export default class CreepyBird {
 
   updateDanmakuLines() {
     this._log('Updating danmaku lines');
-    const availableLines = this.calcAvailableLines();
+    const availableLines = this.calAvailableLines();
     const currentLines = this._danmakuLines.length;
     const videoWidth = this._videoElement.clientWidth;
     const videoHeight = this._videoElement.clientHeight;
@@ -500,8 +546,8 @@ export default class CreepyBird {
 
       const line = this._danmakuLines[lineIndex];
       const videoWidth = this._videoElement.clientWidth;
-      const lineHeight = Math.ceil(this._videoElement.clientHeight / this._danmakuLines.length);
-      const verticalPosition = lineIndex * lineHeight;
+      const lineHeight = this._videoElement.clientHeight / this._danmakuLines.length;
+      const verticalPosition = Math.ceil(lineIndex * lineHeight);
 
       this._log('Positioning danmaku:', {
         lineIndex,
@@ -663,7 +709,20 @@ export default class CreepyBird {
       return this;
     }
 
-    // Remove event listeners using stored handlers
+    // Disconnect and clear observers
+    if (this._resizeObserver) {
+      this._log('Disconnecting ResizeObserver');
+      this._resizeObserver.disconnect();
+      this._resizeObserver = null;
+    }
+
+    if (this._intersectionObserver) {
+      this._log('Disconnecting IntersectionObserver');
+      this._intersectionObserver.disconnect();
+      this._intersectionObserver = null;
+    }
+
+    // Remove video event listeners
     if (this._videoElement && this._handlers) {
       this._videoElement.removeEventListener('play', this._handlers.play);
       this._videoElement.removeEventListener('pause', this._handlers.pause);
